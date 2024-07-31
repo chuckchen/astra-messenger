@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      aws4fetch:
+        specifier: ^1.0.19
+        version: 1.0.19
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20240725.0
@@ -238,6 +242,9 @@ packages:
 
   as-table@1.0.55:
     resolution: {integrity: sha512-xvsWESUJn0JN421Xb9MQw6AsMHRCUknCe0Wjlxvjud80mU4E6hQf1A6NzQKcYNmYw62MfzEtXc+badstZP3JpQ==}
+
+  aws4fetch@1.0.19:
+    resolution: {integrity: sha512-N+F8pZ9hVjckkHODDyalITRNxBJxAGX5ShkVoAgHwqERXsW8Iu5ziFx3SCjGlxx/YStWBTZx4HI/GCMvTBu5kQ==}
 
   binary-extensions@2.3.0:
     resolution: {integrity: sha512-Ceh+7ox5qe7LJuLHoY0feh3pHuUDHAcRUeyL2VYghZwfpkNIy/+8Ocg0a3UuSoYzavmylwuLWQOf3hl0jjMMIw==}
@@ -639,6 +646,8 @@ snapshots:
   as-table@1.0.55:
     dependencies:
       printable-characters: 1.0.42
+
+  aws4fetch@1.0.19: {}
 
   binary-extensions@2.3.0: {}
 

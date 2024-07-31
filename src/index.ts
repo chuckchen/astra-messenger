@@ -1,33 +1,67 @@
-/**
- * Welcome to Cloudflare Workers!
- *
- * This is a template for a Scheduled Worker: a Worker that can run on a
- * configurable interval:
- * https://developers.cloudflare.com/workers/platform/triggers/cron-triggers/
- *
- * - Run `npm run dev` in your terminal to start a development server
- * - Run `curl "http://localhost:8787/__scheduled?cron=*+*+*+*+*"` to see your worker in action
- * - Run `npm run deploy` to publish your worker
- *
- * Bind resources to your worker in `wrangler.toml`. After adding bindings, a type definition for the
- * `Env` object can be regenerated with `npm run cf-typegen`.
- *
- * Learn more at https://developers.cloudflare.com/workers/
- */
+import { AwsClient } from 'aws4fetch';
+
+let aws: AwsClient | null;
 
 export default {
-	// The scheduled handler is invoked at the interval set in our wrangler.toml's
-	// [[triggers]] configuration.
-	async scheduled(event, env, ctx): Promise<void> {
-		// A Cron Trigger can make requests to other endpoints on the Internet,
-		// publish to a Queue, query a D1 Database, and much more.
-		//
-		// We'll keep it simple and make an API call to a Cloudflare API:
-		let resp = await fetch('https://api.cloudflare.com/client/v4/ips');
-		let wasSuccessful = resp.ok ? 'success' : 'fail';
+  async fetch(request, env, ctx) {
+    // Check if the request is authenticated
+    if (!isAuthenticated(request, env)) {
+      return new Response('Unauthorized', { status: 401 });
+    }
 
-		// You could store this result in KV, write to a D1 Database, or publish to a Queue.
-		// In this template, we'll just log the result:
-		console.log(`trigger fired at ${event.cron}: ${wasSuccessful}`);
-	},
+    // Create an AwsClient instance
+    if (aws === null) {
+      aws = new AwsClient({
+        accessKeyId: env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
+        region: env.AWS_REGION,
+        service: 'ses',
+      });
+    }
+    const SES_ENDPOINT = `https://email.${env.AWS_REGION}.amazonaws.com/`;
+
+    // Parse the request body
+    const { to, from, subject, body } = await request.json<any>();
+
+    // Validate input
+    if (!to || !from || !subject || !body) {
+      return new Response('Missing required fields', { status: 400 });
+    }
+
+    // Prepare the SES request payload
+    const payload = new URLSearchParams({
+      Action: 'SendEmail',
+      Source: from,
+      'Destination.ToAddresses.member.1': to,
+      'Message.Subject.Data': subject,
+      'Message.Body.Text.Data': body,
+    });
+
+    try {
+      // Send the email using SES
+      const response = await aws.fetch(SES_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: payload.toString(),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return new Response(`Failed to send email: ${errorText}`, { status: response.status });
+      }
+
+      return new Response('Email sent successfully', { status: 200 });
+    } catch (error: any) {
+      return new Response(`Error sending email: ${error.message}`, { status: 500 });
+    }
+  },
 } satisfies ExportedHandler<Env>;
+
+function isAuthenticated(request: any, env: any) {
+  // Implement your authentication logic here
+  // This could involve checking for a specific header, token, or integrating with Cloudflare Access
+  const authToken = request.headers.get('X-Auth-Token');
+  return authToken === env.API_AUTH_TOKEN; // Replace with your actual authentication logic
+}
