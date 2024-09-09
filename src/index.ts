@@ -57,6 +57,14 @@ export default {
       return new Response(`Error sending email: ${error.message}`, { status: 500 });
     }
   },
+
+  async scheduled(event, env, ctx) {
+    switch (event.cron) {
+      case "57 23 * * *":
+        console.info('Generate user reports.')
+    }
+    console.info("cron processed");
+  }
 } satisfies ExportedHandler<Env>;
 
 function isAuthenticated(request: any, env: any) {
