@@ -3,6 +3,11 @@ name = "mail-sender"
 main = "src/index.ts"
 compatibility_date = "2023-05-18"
 
+[[d1_databases]]
+binding = "DB" # i.e. available in your Worker on env.DB
+database_name = "ds-worker"
+database_id = "6e4ed469-2c57-4dbf-affb-dd87c6a577e0"
+
 # Cron Triggers
 # Docs: https://developers.cloudflare.com/workers/platform/triggers/cron-triggers/
 # Configuration: https://developers.cloudflare.com/workers/wrangler/configuration/#triggers

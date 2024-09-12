@@ -39,3 +39,7 @@ yarn-error.log*
 
 # react-email
 .react-email/
+
+# wrangler project
+.dev.vars
+.wrangler/
