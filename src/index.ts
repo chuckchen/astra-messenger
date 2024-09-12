@@ -1,75 +1,43 @@
-import { AwsClient } from 'aws4fetch';
-
-let aws: AwsClient | null;
+import send from './mail/SesMailer';
 
 export default {
-  async fetch(request, env, ctx) {
-    // Check if the request is authenticated
-    if (!isAuthenticated(request, env)) {
-      return new Response('Unauthorized', { status: 401 });
-    }
+	async fetch(request, env, ctx) {
+		// Check if the request is authenticated
+		if (!isAuthenticated(request, env)) {
+			return new Response('Unauthorized', { status: 401 });
+		}
 
-    // Create an AwsClient instance
-    if (aws === null) {
-      aws = new AwsClient({
-        accessKeyId: env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
-        region: env.AWS_REGION,
-        service: 'ses',
-      });
-    }
-    const SES_ENDPOINT = `https://email.${env.AWS_REGION}.amazonaws.com/`;
+		// Parse the request body
+		const { to, from, subject, body } = await request.json<any>();
 
-    // Parse the request body
-    const { to, from, subject, body } = await request.json<any>();
+		// Validate input
+		if (!to || !from || !subject || !body) {
+			return new Response('Missing required fields', { status: 400 });
+		}
 
-    // Validate input
-    if (!to || !from || !subject || !body) {
-      return new Response('Missing required fields', { status: 400 });
-    }
+		try {
+			// Send the email using SES
+			// This does NOT block / wait
+			ctx.waitUntil(send({ to, from, subject, body }, env));
 
-    // Prepare the SES request payload
-    const payload = new URLSearchParams({
-      Action: 'SendEmail',
-      Source: from,
-      'Destination.ToAddresses.member.1': to,
-      'Message.Subject.Data': subject,
-      'Message.Body.Text.Data': body,
-    });
+			return new Response('Request received', { status: 201 });
+		} catch (error: any) {
+			return new Response(`Error sending email: ${error.message}`, { status: 500 });
+		}
+	},
 
-    try {
-      // Send the email using SES
-      const response = await aws.fetch(SES_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: payload.toString(),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        return new Response(`Failed to send email: ${errorText}`, { status: response.status });
-      }
-
-      return new Response('Email sent successfully', { status: 200 });
-    } catch (error: any) {
-      return new Response(`Error sending email: ${error.message}`, { status: 500 });
-    }
-  },
-
-  async scheduled(event, env, ctx) {
-    switch (event.cron) {
-      case "57 23 * * *":
-        console.info('Generate user reports.')
-    }
-    console.info("cron processed");
-  }
+	async scheduled(event, env, ctx) {
+		switch (event.cron) {
+			case '57 23 * * *':
+				console.info('Generate user reports.');
+		}
+		console.info('cron processed');
+	},
 } satisfies ExportedHandler<Env>;
 
 function isAuthenticated(request: any, env: any) {
-  // Implement your authentication logic here
-  // This could involve checking for a specific header, token, or integrating with Cloudflare Access
-  const authToken = request.headers.get('X-Auth-Token');
-  return authToken === env.API_AUTH_TOKEN; // Replace with your actual authentication logic
+	// Implement your authentication logic here
+	// This could involve checking for a specific header, token, or integrating with Cloudflare Access
+	const authToken = request.headers.get('X-Auth-Token');
+	return authToken === env.API_AUTH_TOKEN; // Replace with your actual authentication logic
 }
