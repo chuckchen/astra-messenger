@@ -15,7 +15,7 @@ app.use(logger());
 app.use('/api/*', async (c: any, next: () => Promise<void>) => {
 	const apiKey = c.req.header('X-API-Key');
 	if (!apiKey || apiKey !== c.env.API_KEY) {
-		return c.json({ error: 'Unauthorized' }, 401);
+		return c.json({ message: 'Unauthorized' }, 401);
 	}
 	await next();
 });
@@ -26,7 +26,7 @@ app.post('/api/email', async (c) => {
 
 	// Validate input
 	if (!to || !from || !subject || !body) {
-		return new Response('Missing required fields', { status: 400 });
+		return c.json({ message: 'Missing required fields' }, { status: 400 });
 	}
 
 	try {
@@ -34,13 +34,13 @@ app.post('/api/email', async (c) => {
 		// This does NOT block / wait
 		c.executionCtx.waitUntil(send({ to, from, subject, body }, c.env));
 
-		return new Response('Request received', { status: 201 });
+		return c.json({ message: 'Request received' }, { status: 201 });
 	} catch (error: any) {
-		return new Response(`Error sending email: ${error.message}`, { status: 500 });
+		return c.json({ message: `Error sending email: ${error.message}` }, { status: 500 });
 	}
 });
 
-app.all('*', (c) => c.json({ error: 'Method not allowed' }, 405));
+app.all('*', (c) => c.json({ message: 'Method not allowed' }, 405));
 
 export default {
 	fetch: app.fetch,
