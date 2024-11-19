@@ -13,7 +13,7 @@ app.use('*', cors());
 app.use(logger());
 
 // Apply auth middleware to all routes
-app.use('/api/*', async (c: any, next: () => Promise<void>) => {
+app.use('/api/*', async (c, next: () => Promise<void>) => {
 	const apiKey = c.req.header('X-API-Key');
 	if (!apiKey || apiKey !== c.env.API_AUTH_TOKEN) {
 		return c.json({ message: 'Unauthorized' }, 401);
@@ -24,7 +24,7 @@ app.use('/api/*', async (c: any, next: () => Promise<void>) => {
 // Send email requet handler
 app.post('/api/email', async (c) => {
 	// Parse the request body
-	const { to, from, subject, body } = await c.req.json<any>();
+	const { to, from, subject, body } = await c.req.json();
 
 	// Validate input
 	if (!to || !from || !subject || !body) {
@@ -33,8 +33,10 @@ app.post('/api/email', async (c) => {
 
 	try {
 		// Send the email using SES
+		const sendResult = send({ to, from, subject, body }, c.env);
+
 		// This does NOT block / wait
-		c.executionCtx.waitUntil(send({ to, from, subject, body }, c.env));
+		c.executionCtx.waitUntil(sendResult);
 
 		return c.json({ message: 'Request received' }, { status: 201 });
 	} catch (error: any) {
@@ -77,7 +79,7 @@ export default {
 	async scheduled(event, env, ctx) {
 		switch (event.cron) {
 			case '57 23 * * *':
-				console.info('Generate user reports.');
+				console.info('Generate mail reports.');
 		}
 		console.info('cron processed');
 	},
