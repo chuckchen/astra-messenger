@@ -1,7 +1,5 @@
 import { AwsClient } from 'aws4fetch';
 
-let aws: AwsClient | null;
-
 const send = async (
 	{ to, from, subject, body }: { to: string | string[]; from: string; subject: string; body: string },
 	env: Env
@@ -9,14 +7,12 @@ const send = async (
 	const SES_ENDPOINT = `https://email.${env.AWS_REGION}.amazonaws.com/`;
 
 	// Create an AwsClient instance
-	if (aws === null) {
-		aws = new AwsClient({
-			accessKeyId: env.AWS_ACCESS_KEY_ID,
-			secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
-			region: env.AWS_REGION,
-			service: 'ses',
-		});
-	}
+	const aws = new AwsClient({
+		accessKeyId: env.AWS_ACCESS_KEY_ID,
+		secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
+		region: env.AWS_REGION,
+		service: 'ses',
+	});
 
 	// Prepare the SES request payload
 	const toFields = Array.isArray(to)
