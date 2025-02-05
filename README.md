@@ -8,6 +8,45 @@ It exposes the APIs to
 * Subscribe to a product with a category
 * Unsubscribe from a product
 
+```mermaid
+---
+Mailer ER Diagram
+---
+erDiagram
+  message ||--o{ email : "send to"
+  subscription ||--|| email : uses
+  subscription ||--|| product : uses
+  waitlist ||--|| email : uses
+  waitlist ||--|| product : uses
+  email {
+    integer id PK
+    string address "Email address"
+    string name "Full name"
+  }
+  product {
+    integer id PK
+    string name "Product name"
+    string description "Product description"
+  }
+  message {
+    string id PK
+    integer email_id FK
+    string status
+  }
+  subscription {
+    integer id PK
+    integer email_id FK
+    integer proudct_id FK
+    string type "transactional, promotion"
+    string status
+  }
+  waitlist {
+    integer id PK
+    integer email_id FK
+    integer product_id FK
+  }
+```
+
 # Setup
 
 ## AWS Credentials
@@ -23,6 +62,24 @@ One optional but recommended step is to set up authorization token to protect yo
 ```sh
 openssl rand -base64 24
 echo $API_AUTH_TOKEN | pnpm dlx wrangler secret put API_AUTH_TOKEN
+```
+
+# Develop
+
+To pull the production D1 tables to local:
+
+```sh
+# Export the table DDL
+pnpm wrangler d1 export ds-worker --table product --output scripts/create_table_product.sql --no-data --remote
+
+# Export the table data
+pnpm wrangler d1 export ds-worker --table product --output scripts/populate_table_product.sql --no-schema --remote
+```
+
+Then run against local D1:
+
+```sh
+pnpm wrangler d1 execute ds-worker --file scripts/populate_table_product.sql
 ```
 
 # Deploy
