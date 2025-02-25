@@ -1,21 +1,34 @@
 {
-	"name": "mail-sender",
-	"version": "0.5.0",
+	"name": "astro-messenger",
+	"version": "0.9.0",
 	"private": true,
-	"packageManager": "pnpm@9.13.2",
+	"packageManager": "pnpm@10.4.1",
 	"scripts": {
 		"deploy": "wrangler deploy",
 		"dev": "wrangler dev --test-scheduled",
 		"start": "wrangler dev --test-scheduled",
-		"cf-typegen": "wrangler types"
+		"cf-typegen": "wrangler types",
+		"prisma:generate": "prisma generate",
+		"prisma:studio": "prisma studio",
+		"prisma:format": "prisma format"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^4.20250129.0",
+		"prisma": "^6.4.1",
 		"typescript": "^5.7.3",
 		"wrangler": "^3.107.3"
 	},
 	"dependencies": {
+		"@prisma/adapter-d1": "^6.4.1",
+		"@prisma/client": "^6.4.1",
 		"aws4fetch": "^1.0.20",
 		"hono": "^4.6.20"
+	},
+	"pnpm": {
+		"onlyBuiltDependencies": [
+			"@prisma/client",
+			"@prisma/engines",
+			"prisma"
+		]
 	}
 }
