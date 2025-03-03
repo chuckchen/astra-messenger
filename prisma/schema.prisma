@@ -17,6 +17,18 @@ enum MessageStatus {
   FAILED
 }
 
+enum SubscriptionStatus {
+  ACTIVE
+  UNSUBSCRIBED
+  BOUNCED
+}
+
+enum WaitlistStatus {
+  WAITING
+  NOTIFIED
+  CONVERTED
+}
+
 // Contacts (recipients)
 model Contact {
   id           Int             @id @default(autoincrement())
@@ -25,6 +37,7 @@ model Contact {
   createdAt    DateTime        @default(now()) @map("created_at")
   messages     Message[]
   blocks       TemplateBlock[]
+  Waitlist     Waitlist[]
 
   @@map("contacts")
 }
@@ -39,6 +52,7 @@ model Project {
   createdAt   DateTime   @default(now()) @map("created_at")
   updatedAt   DateTime   @updatedAt @map("updated_at")
   templates   Template[]
+  Waitlist    Waitlist[]
 
   @@map("projects")
 }
@@ -80,7 +94,7 @@ model Message {
   @@map("messages")
 }
 
-// Template-specific contact blocks
+// Blacklisted emails, m-n relation between contacts and tempaltes.
 model TemplateBlock {
   id         Int      @id @default(autoincrement())
   contact    Contact  @relation(fields: [contactId], references: [id])
@@ -92,4 +106,20 @@ model TemplateBlock {
 
   @@unique([contactId, templateId])
   @@map("template_blocks")
+}
+
+// Product waitlist entries, m-n relation between contacts and projects.
+model Waitlist {
+  id         Int            @id @default(autoincrement())
+  contact    Contact        @relation(fields: [contactId], references: [id])
+  contactId  Int            @map("contact_id")
+  product    Project        @relation(fields: [productId], references: [id])
+  productId  Int            @map("product_id")
+  status     WaitlistStatus @default(WAITING)
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
+  notifiedAt DateTime?      @map("notified_at")
+
+  @@unique([contactId, productId])
+  @@map("waitlists")
 }
