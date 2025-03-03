@@ -1,38 +1,131 @@
-const unsubscribe = async ({ email, product }: { email: string; product: string }, env: Env): Promise<{ data: number; error: any }> => {
-	const query = `
-    UPDATE subscription
-    SET deleted_at = ?
-    FROM email, product
-    WHERE email.id = subscription.email_id AND product.id = subscription.product_id AND email.address = ? AND product.name = ?
-  `;
-	const result = await env.DB.prepare(query).bind(new Date().toISOString(), email).run();
+import { getPrismaClient } from '../lib/prisma-client';
 
-	if (result.meta.changes === 0) {
-		return { data: result.meta.changes, error: 'No record found' };
+/**
+ * Unsubscribe a contact from a project
+ * Updates the waitlist status to CONVERTED to indicate unsubscription
+ */
+const unsubscribe = async ({ email, project }: { email: string; project: string }, env: Env): Promise<{ data: number; error: any }> => {
+	try {
+		const prisma = getPrismaClient(env);
+
+		// Find the contact
+		const contact = await prisma.contact.findUnique({
+			where: { emailAddress: email },
+		});
+
+		if (!contact) {
+			return { data: 0, error: `Contact with email ${email} not found` };
+		}
+
+		// Find the project
+		const projectRecord = await prisma.project.findUnique({
+			where: { projectKey: project },
+		});
+
+		if (!projectRecord) {
+			return { data: 0, error: `Project with key ${project} not found` };
+		}
+
+		// Update the waitlist status to CONVERTED to indicate unsubscription
+		const result = await prisma.waitlist.updateMany({
+			where: {
+				contactId: contact.id,
+				productId: projectRecord.id,
+			},
+			data: {
+				status: 'CONVERTED', // Using CONVERTED to indicate they've unsubscribed
+				updatedAt: new Date(),
+			},
+		});
+
+		if (result.count === 0) {
+			return { data: 0, error: 'No record found' };
+		}
+
+		return { data: result.count, error: null };
+	} catch (error: any) {
+		console.error('Error in unsubscribe:', error);
+		return { data: 0, error: error.message };
 	}
-
-	return { data: result.meta.changes, error: null };
 };
 
+/**
+ * Subscribe a contact to a project
+ * Creates a new waitlist entry with WAITING status
+ */
 const subscribe = async (
-	{ email, product, type = '' }: { email: string; product: string; type?: string | undefined },
-	env: Env
+	{ email, project, type = '' }: { email: string; project: string; type?: string | undefined },
+	env: Env,
 ): Promise<{ data: number; error: any }> => {
-	const query = `
-  INSERT INTO subscription (email_id, product_id, subscription_type)
-  SELECT email.id, product.id, ?
-  FROM email, product
-  WHERE email.address = ? AND product.name = ?
-`;
+	try {
+		const prisma = getPrismaClient(env);
 
-	const result = await env.DB.prepare(query).bind(type, email, product).run();
+		// Get or create contact
+		const contact = await prisma.contact.upsert({
+			where: { emailAddress: email },
+			update: {},
+			create: {
+				emailAddress: email,
+				displayName: email.split('@')[0], // Simple default display name
+			},
+		});
 
-	if (result.meta.changes === 0) {
-		console.error(`Insert failed with ${JSON.stringify(result.error)}`);
-		return { data: result.meta.changes, error: 'Insert failed' };
+		// Find the project
+		const projectRecord = await prisma.project.findUnique({
+			where: { projectKey: project },
+		});
+
+		if (!projectRecord) {
+			return { data: 0, error: `Project with key ${project} not found` };
+		}
+
+		// Check if subscription already exists
+		const existingWaitlist = await prisma.waitlist.findUnique({
+			where: {
+				contactId_productId: {
+					contactId: contact.id,
+					productId: projectRecord.id,
+				},
+			},
+		});
+
+		if (existingWaitlist) {
+			// If already exists but was unsubscribed, reactivate it
+			if (existingWaitlist.status !== 'WAITING') {
+				await prisma.waitlist.update({
+					where: {
+						id: existingWaitlist.id,
+					},
+					data: {
+						status: 'WAITING',
+						updatedAt: new Date(),
+					},
+				});
+
+				return { data: 1, error: null };
+			}
+
+			return { data: 0, error: 'Already subscribed' };
+		}
+
+		// Create new subscription
+		await prisma.waitlist.create({
+			data: {
+				contact: {
+					connect: { id: contact.id },
+				},
+				product: {
+					connect: { id: projectRecord.id },
+				},
+				status: 'WAITING',
+			},
+		});
+
+		return { data: 1, error: null };
+	} catch (error: any) {
+		console.error('Error in subscribe:', error);
+		return { data: 0, error: error.message };
 	}
-
-	return { data: result.meta.changes, error: null };
 };
 
-export { unsubscribe, subscribe };
+export { subscribe, unsubscribe };

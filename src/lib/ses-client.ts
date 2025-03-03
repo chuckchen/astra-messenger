@@ -4,7 +4,7 @@ let aws: AwsClient | null = null;
 
 const send = async (
 	{ to, from, subject, body }: { to: string | string[]; from: string; subject: string; body: string },
-	env: Env
+	env: Env,
 ): Promise<{ code: number; message: string }> => {
 	const SES_ENDPOINT = `https://email.${env.AWS_REGION}.amazonaws.com/`;
 

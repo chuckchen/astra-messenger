@@ -9,9 +9,9 @@ enabled = true
 head_sampling_rate = 1
 
 [[d1_databases]]
-binding = "DB" # i.e. available in your Worker on env.DB
-database_name = "ds-worker"
-database_id = "6e4ed469-2c57-4dbf-affb-dd87c6a577e0"
+binding = "DB"
+database_name = "messenger"
+database_id = "5aa87e1a-1efb-4119-b8d5-cd0ec37eaa9c"
 
 # Cron Triggers
 # Docs: https://developers.cloudflare.com/workers/platform/triggers/cron-triggers/

@@ -2,7 +2,7 @@ const RESENT_ENDPOINT = 'https://api.resend.com';
 
 const send = async (
 	{ to, from, subject, body, html }: { to: string | string[]; from: string; subject: string; body: string; html?: string | undefined },
-	env: Env
+	env: Env,
 ): Promise<{ code: number; message: string }> => {
 	const apiKey = env.RESEND_API_KEY;
 
