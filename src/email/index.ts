@@ -27,7 +27,7 @@ router.post('/', async (c) => {
 				// First log the message
 				const loggedMessages = await MessageLogService.logMessage({ to, from, subject }, c.env);
 
-				const sendPromise = EmailService.sendDirectEmail({ to, from, subject, body, html }, c.env);
+				const sendPromise = EmailService.sendDirectEmail({ to, from, subject, body, html, provider }, c.env);
 
 				// This does NOT block / wait
 				c.executionCtx.waitUntil(
