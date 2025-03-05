@@ -17,7 +17,7 @@ const send = async (
 	};
 
 	try {
-		const response = await fetch('https://api.resend.com', {
+		const response = await fetch('https://api.resend.com/emails', {
 			method: 'POST',
 			headers: {
 				Authorization: `Bearer ${apiKey}`,
