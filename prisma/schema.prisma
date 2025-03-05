@@ -17,6 +17,12 @@ enum MessageStatus {
   FAILED
 }
 
+enum WaitlistStatus {
+  WAITING
+  NOTIFIED
+  CONVERTED
+}
+
 // Contacts (recipients)
 model Contact {
   id           Int              @id @default(autoincrement())
@@ -25,6 +31,7 @@ model Contact {
   createdAt    DateTime         @default(now()) @map("created_at")
   messages     Message[]
   optOuts      TemplateOptOut[]
+  waitlists    Waitlist[]
 
   @@map("contacts")
 }
@@ -39,6 +46,7 @@ model Project {
   createdAt   DateTime   @default(now()) @map("created_at")
   updatedAt   DateTime   @updatedAt @map("updated_at")
   templates   Template[]
+  waitlists   Waitlist[]
 
   @@map("projects")
 }
@@ -93,4 +101,20 @@ model TemplateOptOut {
 
   @@unique([contactId, templateId])
   @@map("template_optouts")
+}
+
+// Product waitlist entries, m-n relation between contacts and projects.
+model Waitlist {
+  id         Int            @id @default(autoincrement())
+  contact    Contact        @relation(fields: [contactId], references: [id])
+  contactId  Int            @map("contact_id")
+  project    Project        @relation(fields: [projectId], references: [id])
+  projectId  Int            @map("project_id")
+  status     WaitlistStatus @default(WAITING)
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
+  notifiedAt DateTime?      @map("notified_at")
+
+  @@unique([contactId, projectId])
+  @@map("waitlists")
 }
