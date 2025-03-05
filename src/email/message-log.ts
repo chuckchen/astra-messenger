@@ -13,7 +13,7 @@ class MessageLogService {
 
 		try {
 			await prisma.message.update({
-				where: { id, externalId: externalId },
+				where: { id },
 				data: {
 					status,
 					...(externalId && { externalId }),
