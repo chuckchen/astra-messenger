@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 
 import { getPrismaClient } from '../lib/prisma-client';
-import { getEmailName } from '../lib/utils';
+import { getDisplayName } from '../lib/utils';
 
 const router = new Hono<{ Bindings: Env }>().basePath('/contacts');
 
@@ -13,8 +13,8 @@ router.post('/', async (c) => {
 	try {
 		await prisma.contact.upsert({
 			where: { emailAddress: email },
-			update: { displayName: getEmailName(email) },
-			create: { emailAddress: email, displayName: getEmailName(email) },
+			update: { displayName: getDisplayName(email) },
+			create: { emailAddress: email, displayName: getDisplayName(email) },
 		});
 
 		return c.json({ success: true, code: 200, message: 'Contact saved.' }, { status: 200 });

@@ -1,7 +1,7 @@
 import { type Message as MessageType } from '@prisma/client';
 
 import { getPrismaClient } from '../lib/prisma-client';
-import { getEmailName } from '../lib/utils';
+import { getEmail } from '../lib/utils';
 import { DirectEmailRequest, EmailResponse, TemplateEmailRequest } from './emails';
 import TemplateService from './templates';
 
@@ -52,10 +52,11 @@ class MessageLogService {
 			const results = await Promise.all(
 				recipients.map(async (email) => {
 					// Find or create contact
+					const { displayName, emailAddress } = getEmail(email);
 					const contact = await prisma.contact.upsert({
-						where: { emailAddress: email },
-						update: { displayName: getEmailName(email) },
-						create: { emailAddress: email, displayName: getEmailName(email) },
+						where: { emailAddress },
+						update: {},
+						create: { emailAddress, displayName },
 					});
 
 					// Create message log
@@ -93,10 +94,11 @@ class MessageLogService {
 			const results = await Promise.all(
 				recipients.map(async (email) => {
 					// Find or create contact
+					const { displayName, emailAddress } = getEmail(email);
 					const contact = await prisma.contact.upsert({
-						where: { emailAddress: email },
-						update: { displayName: getEmailName(email) },
-						create: { emailAddress: email, displayName: getEmailName(email) },
+						where: { emailAddress },
+						update: {},
+						create: { emailAddress, displayName },
 					});
 
 					// Create message log (without template)

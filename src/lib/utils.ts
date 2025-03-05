@@ -1,4 +1,4 @@
-const getEmailName = (email: string) => {
+const getDisplayName = (email: string) => {
 	// Check if email has format "Name <email@example.com>"
 	const displayNameMatch = email.match(/^([^<]+)<([^>]+)>$/);
 
@@ -12,4 +12,21 @@ const getEmailName = (email: string) => {
 	return username;
 };
 
-export { getEmailName };
+const getEmailAddress = (email: string) => {
+	// Check if email has format "Name <email@example.com>"
+	const emailAddressMatch = email.match(/<([^>]+)>/);
+
+	if (emailAddressMatch) {
+		// Return the email address part from inside the angle brackets
+		return emailAddressMatch[1];
+	}
+
+	// If no angle brackets, assume the entire string is an email address
+	return email;
+};
+
+const getEmail = (email: string) => {
+	return { displayName: getDisplayName(email), emailAddress: getEmailAddress(email) };
+};
+
+export { getDisplayName, getEmail, getEmailAddress };
