@@ -1,7 +1,7 @@
 const send = async (
 	{ to, from, subject, text, html }: { to: string | string[]; from: string; subject: string; text: string; html: string },
 	env: Env,
-): Promise<{ code: number; message: string }> => {
+): Promise<{ code: number; message: string; data?: any }> => {
 	const apiKey = env.MAILERSEND_API_KEY;
 
 	if (!apiKey) {
@@ -32,9 +32,9 @@ const send = async (
 			body: JSON.stringify(payload),
 		});
 
-		if (response.ok) {
-			const data = (await response.json()) as any;
-			return { code: 201, message: `Email sent to ${JSON.stringify(to)}: ${data.message_id}` };
+		if (response.status === 202) {
+			const id = response.headers.get('x-message-id');
+			return { code: 201, message: `Email sent to ${JSON.stringify(to)}: ${id}`, data: { id } };
 		}
 
 		if (response.status === 400) {

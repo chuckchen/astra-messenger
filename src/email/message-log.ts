@@ -1,15 +1,18 @@
-import { type Message as MessageType, MessageStatus } from '@prisma/client';
+import { type Message as MessageType } from '@prisma/client';
 
 import { getPrismaClient } from '../lib/prisma-client';
-import { DirectEmailRequest, TemplateEmailRequest } from './emails';
+import { DirectEmailRequest, EmailResponse, TemplateEmailRequest } from './emails';
 import TemplateService from './templates';
 
 class MessageLogService {
 	/**
 	 * Update the status of a message in the database
 	 */
-	static async updateMessageLog(id: number, externalId: string = '', status: MessageStatus = 'PENDING', env: Env): Promise<void> {
+	static async updateMessageLog(id: number, result: EmailResponse, env: Env): Promise<void> {
 		const prisma = getPrismaClient(env);
+
+		const status = result.success ? 'SENT' : 'FAILED';
+		const { id: externalId } = JSON.parse(result?.data ? result.data : '{}');
 
 		try {
 			await prisma.message.update({
@@ -18,6 +21,7 @@ class MessageLogService {
 					status,
 					...(externalId && { externalId }),
 					...(status === 'SENT' && { sentAt: new Date() }),
+					errorDetails: result.message,
 				},
 			});
 		} catch (error) {
@@ -28,7 +32,7 @@ class MessageLogService {
 	/**
 	 * Log a template email to the database
 	 */
-	static async logTemplateEmail(request: TemplateEmailRequest, env: Env, upstreamId?: string): Promise<MessageType[]> {
+	static async logTemplateEmail(request: TemplateEmailRequest, env: Env, externalId?: string): Promise<MessageType[]> {
 		const { to, templateName, templateVariables } = request;
 		const prisma = getPrismaClient(env);
 
@@ -60,7 +64,7 @@ class MessageLogService {
 							templateId: template.id,
 							status: 'PENDING',
 							variables: JSON.stringify(templateVariables),
-							...(upstreamId && { upstreamId }),
+							...(externalId && { externalId }),
 						},
 					});
 				}),
@@ -76,8 +80,8 @@ class MessageLogService {
 	/**
 	 * Log a direct email to the database
 	 */
-	static async logDirectEmail(request: Omit<DirectEmailRequest, 'body' | 'html'>, env: Env, upstreamId?: string): Promise<MessageType[]> {
-		const { to, subject } = request;
+	static async logDirectEmail(request: Omit<DirectEmailRequest, 'body' | 'html'>, env: Env, externalId?: string): Promise<MessageType[]> {
+		const { to } = request;
 		const prisma = getPrismaClient(env);
 
 		// Convert single recipient to array for consistent handling
@@ -99,8 +103,7 @@ class MessageLogService {
 						data: {
 							contactId: contact.id,
 							status: 'PENDING',
-							variables: JSON.stringify({ subject }),
-							...(upstreamId && { upstreamId }),
+							...(externalId && { externalId }),
 						},
 					});
 				}),

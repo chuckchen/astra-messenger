@@ -145,7 +145,7 @@ class EmailService {
 					result = await sendResend({ to, from, subject, text, html }, env);
 			}
 
-			return { success: result.code >= 200 && result.code < 300, code: result.code, message: result.message };
+			return { success: result.code >= 200 && result.code < 300, code: result.code, message: result.message, data: result.data };
 		} catch (error: any) {
 			return { success: false, code: 500, message: `Error sending email: ${error.message}` };
 		}

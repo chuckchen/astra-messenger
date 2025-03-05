@@ -1,7 +1,7 @@
 const send = async (
 	{ to, from, subject, text, html }: { to: string | string[]; from: string; subject: string; text: string; html: string },
 	env: Env,
-): Promise<{ code: number; message: string }> => {
+): Promise<{ code: number; message: string; data?: any }> => {
 	const apiKey = env.RESEND_API_KEY;
 
 	if (!apiKey) {
@@ -28,11 +28,11 @@ const send = async (
 
 		if (response.ok) {
 			const { id } = (await response.json()) as any;
-			return { code: 201, message: `Email sent to ${JSON.stringify(to)}: ${id}` };
+			return { code: 201, message: `Email sent to ${JSON.stringify(to)}: ${id}`, data: { id } };
 		}
 
 		if (response.status === 400) {
-			console.error(`Incorrect parameters: ${JSON.stringify(payload)}`);
+			console.error(`Incorrect parameters: ${JSON.stringify(payload)}}`);
 			return { code: 400, message: 'Incorrect parameters' };
 		}
 

@@ -34,9 +34,7 @@ router.post('/', async (c) => {
 					sendPromise.then(async (result) => {
 						await Promise.all(
 							loggedMessages.map(async (message) => {
-								const status = result.success ? 'SENT' : 'FAILED';
-								const { id: externalId } = JSON.parse(result?.data ? result.data : '{}');
-								await MessageLogService.updateMessageLog(message.id, externalId, status, c.env);
+								await MessageLogService.updateMessageLog(message.id, result, c.env);
 							}),
 						);
 					}),
@@ -76,9 +74,7 @@ router.post('/', async (c) => {
 			sendPromise.then(async (result) => {
 				await Promise.all(
 					loggedMessages.map(async (message) => {
-						const status = result.success ? 'SENT' : 'FAILED';
-						const { id: externalId } = JSON.parse(result?.data ? result?.data : '{}');
-						await MessageLogService.updateMessageLog(message.id, externalId, status, c.env);
+						await MessageLogService.updateMessageLog(message.id, result, c.env);
 					}),
 				);
 			}),
