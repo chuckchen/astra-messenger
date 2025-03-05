@@ -42,7 +42,7 @@ class EmailService {
 	 * Send an email using a template
 	 */
 	static async sendTemplateEmail(request: TemplateEmailRequest, env: Env): Promise<EmailResponse> {
-		const { to, from, templateName, templateVariables, provider = 'resend' } = request;
+		const { to, from, templateName, templateVariables, provider = 'mailersend' } = request;
 
 		// Convert single recipient to array for consistent handling
 		const recipients = Array.isArray(to) ? to : [to];
@@ -97,7 +97,7 @@ class EmailService {
 	 * Send an email with direct content
 	 */
 	static async sendDirectEmail(request: DirectEmailRequest, env: Env): Promise<EmailResponse> {
-		const { to, from, subject, body, html, provider = 'resend' } = request;
+		const { to, from, subject, body, html, provider = 'mailersend' } = request;
 
 		if (!subject || !body) {
 			return {
@@ -142,7 +142,7 @@ class EmailService {
 					result = await sendSes({ to, from, subject, text, html }, env);
 					break;
 				default:
-					result = await sendResend({ to, from, subject, text, html }, env);
+					result = await sendMailerSend({ to, from, subject, text, html }, env);
 			}
 
 			return { success: result.code >= 200 && result.code < 300, code: result.code, message: result.message, data: result.data };
