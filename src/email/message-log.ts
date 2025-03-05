@@ -1,6 +1,7 @@
 import { type Message as MessageType } from '@prisma/client';
 
 import { getPrismaClient } from '../lib/prisma-client';
+import { getEmailName } from '../lib/utils';
 import { DirectEmailRequest, EmailResponse, TemplateEmailRequest } from './emails';
 import TemplateService from './templates';
 
@@ -12,7 +13,7 @@ class MessageLogService {
 		const prisma = getPrismaClient(env);
 
 		const status = result.success ? 'SENT' : 'FAILED';
-		const { id: externalId } = JSON.parse(result?.data ? result.data : '{}');
+		const { id: externalId } = result.data ? result.data : {};
 
 		try {
 			await prisma.message.update({
@@ -53,8 +54,8 @@ class MessageLogService {
 					// Find or create contact
 					const contact = await prisma.contact.upsert({
 						where: { emailAddress: email },
-						update: {},
-						create: { emailAddress: email },
+						update: { displayName: getEmailName(email) },
+						create: { emailAddress: email, displayName: getEmailName(email) },
 					});
 
 					// Create message log
@@ -94,8 +95,8 @@ class MessageLogService {
 					// Find or create contact
 					const contact = await prisma.contact.upsert({
 						where: { emailAddress: email },
-						update: {},
-						create: { emailAddress: email },
+						update: { displayName: getEmailName(email) },
+						create: { emailAddress: email, displayName: getEmailName(email) },
 					});
 
 					// Create message log (without template)
