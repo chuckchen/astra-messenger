@@ -21,8 +21,7 @@ class MessageLogService {
 				data: {
 					status,
 					...(externalId && { externalId }),
-					...(status === 'SENT' && { sentAt: new Date() }),
-					errorDetails: result.message,
+					...(status === 'SENT' ? { sentAt: new Date() } : { errorDetails: result.message }),
 				},
 			});
 		} catch (error) {
