@@ -2,10 +2,12 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 
-import emailRouter from './mail';
-import { errorHandler, rateLimiter, responseHandler } from './middleware/response';
-import subscriptionRouter from './subscription';
-import waitlistRouter from './waitlist';
+import { router as emailRouter } from './email';
+import { authHandler } from './middleware/auth-handler';
+import { errorHandler } from './middleware/error-handler';
+import { rateLimiter } from './middleware/rate-limiter';
+import { responseHandler } from './middleware/response-handler';
+import { router as subscriptionRouter } from './optout';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -19,29 +21,11 @@ app.use(rateLimiter);
 app.onError(errorHandler);
 
 // Apply auth middleware to all routes
-app.use('/api/*', async (c, next: () => Promise<void>) => {
-	const apiKey = c.req.header('X-API-Key');
-	if (!apiKey || apiKey !== c.env.API_AUTH_TOKEN) {
-		return c.json(
-			{
-				success: false,
-				code: 401,
-				message: 'Unauthorized',
-			},
-			{ status: 401 },
-		);
-	}
-	await next();
-});
+app.use('/api/*', authHandler);
 
-// Email API routes
-app.route('/', emailRouter);
-
-// Subscription API routes
-app.route('/', subscriptionRouter);
-
-// Waitlist API routes
-app.route('/', waitlistRouter);
+// API routes with versioning
+app.route('/api/v1', emailRouter);
+app.route('/api/v1', subscriptionRouter);
 
 app.all('*', (c) => c.json({ message: 'Method not allowed' }, 405));
 

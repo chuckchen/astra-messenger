@@ -11,7 +11,7 @@ head_sampling_rate = 1
 [[d1_databases]]
 binding = "DB"
 database_name = "messenger"
-database_id = "5aa87e1a-1efb-4119-b8d5-cd0ec37eaa9c"
+database_id = "20fac7ee-550b-465f-a71c-c3deeee18d56"
 
 # Cron Triggers
 # Docs: https://developers.cloudflare.com/workers/platform/triggers/cron-triggers/

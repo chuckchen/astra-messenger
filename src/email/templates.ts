@@ -3,11 +3,13 @@
  * Handles fetching and processing email templates with variable substitution
  */
 
+import { getPrismaClient } from '../lib/prisma-client';
+
 interface TemplateData {
 	id: number;
 	name: string;
 	subject: string;
-	htmlContent: string | null;
+	htmlContent: string;
 	textContent: string;
 }
 
@@ -19,18 +21,27 @@ class TemplateService {
 	/**
 	 * Fetch a template by name from the database
 	 */
-	static async getTemplate(name: string, env: Env): Promise<TemplateData | null> {
-		const query = `
-      SELECT id, name, subject, html_content as htmlContent, text_content as textContent
-      FROM email_template
-      WHERE name = ?
-    `;
+	static async getTemplate(key: string, env: Env): Promise<TemplateData | null> {
+		const prisma = getPrismaClient(env);
 
 		try {
-			const result = await env.DB.prepare(query).bind(name).first();
-			return result as TemplateData | null;
+			const template = await prisma.template.findFirst({
+				where: { key: key },
+			});
+
+			if (!template) {
+				return null;
+			}
+
+			return {
+				id: template.id,
+				name: template.key,
+				subject: template.subject,
+				htmlContent: template.bodyHtml,
+				textContent: template.bodyText,
+			};
 		} catch (error) {
-			console.error(`Failed to fetch template ${name}: ${error}`);
+			console.error(`Failed to fetch template ${key}: ${error}`);
 			return null;
 		}
 	}
@@ -39,7 +50,7 @@ class TemplateService {
 	 * Process a template with variable substitution
 	 * Replaces {{variable}} placeholders with actual values
 	 */
-	static processTemplate(template: TemplateData, variables: TemplateVariables): { subject: string; html: string | null; text: string } {
+	static processTemplate(template: TemplateData, variables: TemplateVariables): { subject: string; html: string; text: string } {
 		// Process subject
 		let subject = template.subject;
 
@@ -54,9 +65,7 @@ class TemplateService {
 			const placeholder = new RegExp(`{{${key}}}`, 'g');
 			subject = subject.replace(placeholder, String(value));
 
-			if (html) {
-				html = html.replace(placeholder, String(value));
-			}
+			html = html.replace(placeholder, String(value));
 
 			text = text.replace(placeholder, String(value));
 		});
@@ -72,14 +81,14 @@ class TemplateService {
 	 * Get a processed template ready for sending
 	 */
 	static async getProcessedTemplate(
-		name: string,
+		key: string,
 		variables: TemplateVariables,
 		env: Env,
-	): Promise<{ subject: string; html: string | null; text: string } | null> {
-		const template = await this.getTemplate(name, env);
+	): Promise<{ subject: string; html: string; text: string } | null> {
+		const template = await this.getTemplate(key, env);
 
 		if (!template) {
-			console.error(`Template not found: ${name}`);
+			console.error(`Template not found: ${key}`);
 			return null;
 		}
 
