@@ -17,13 +17,14 @@ const send = async (
 	};
 
 	try {
+		// TODO: Add list-unsubscribe headers, ref: https://resend.com/docs/dashboard/emails/add-unsubscribe-to-transactional-emails
 		const response = await fetch('https://api.resend.com/emails', {
 			method: 'POST',
 			headers: {
 				Authorization: `Bearer ${apiKey}`,
 				'Content-Type': 'application/json',
 			},
-			body: JSON.stringify(payload),
+			body: JSON.stringify({ ...payload, headers: { 'List-Unsubscribe': 'https://pixels-ai.com/unsubscribe' } }),
 		});
 
 		if (response.ok) {
