@@ -14,7 +14,7 @@
 		"prisma:format": "prisma format"
 	},
 	"devDependencies": {
-		"@cloudflare/workers-types": "^4.20250129.0",
+		"@cloudflare/workers-types": "^4.20250702.0",
 		"@eslint/js": "^9.21.0",
 		"@typescript-eslint/eslint-plugin": "^8.25.0",
 		"@typescript-eslint/parser": "^8.25.0",
@@ -28,7 +28,7 @@
 		"prisma": "^6.4.1",
 		"typescript": "^5.7.3",
 		"typescript-eslint": "^8.25.0",
-		"wrangler": "^3.107.3"
+		"wrangler": "^4.22.0"
 	},
 	"dependencies": {
 		"@prisma/adapter-d1": "^6.4.1",
