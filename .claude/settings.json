@@ -1,0 +1,7 @@
+{
+	"model": "opusplan",
+	"permissions": {
+		"allow": ["Read", "Write", "Bash(git:*)"],
+		"deny": ["Read(./.env)", "Read(./.env.*)", "Write(./production.config.*)", "Bash(rm:*)", "Bash(sudo:*)"]
+	}
+}
