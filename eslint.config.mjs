@@ -35,6 +35,6 @@ export default [
 		},
 	},
 	{ files: ['**/*.js'], languageOptions: { sourceType: 'script' } },
-	{ ignores: ['node_modules/', 'dist/', 'build/'] },
+	{ ignores: ['node_modules/', 'dist/', 'build/', '.wrangler/'] },
 	eslintPluginPrettierRecommended,
 ];
