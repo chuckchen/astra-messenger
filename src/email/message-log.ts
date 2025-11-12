@@ -2,26 +2,40 @@ import { type Message as MessageType } from '@prisma/client';
 
 import { getPrismaClient } from '../lib/prisma-client';
 import { getEmail } from '../lib/utils';
-import { DirectEmailRequest, EmailResponse, TemplateEmailRequest } from './emails';
+import type { DirectEmailRequest, EmailResponse, TemplateEmailRequest } from '../types';
 import TemplateService from './templates';
 
 class MessageLogService {
 	/**
 	 * Update the status of a message in the database
 	 */
-	static async updateMessageLog(id: number, result: EmailResponse, env: Env): Promise<void> {
+	static async updateMessageLog(
+		id: number | string,
+		result: EmailResponse,
+		env: Env,
+		options?: {
+			attempts?: number;
+			nextRetryAt?: Date;
+			provider?: string;
+		},
+	): Promise<void> {
 		const prisma = getPrismaClient(env);
 
 		const status = result.success ? 'SENT' : 'FAILED';
 		const { id: externalId } = result.data ? result.data : {};
+		const messageId = typeof id === 'string' ? parseInt(id, 10) : id;
 
 		try {
 			await prisma.message.update({
-				where: { id },
+				where: { id: messageId },
 				data: {
 					status,
 					...(externalId && { externalId }),
 					...(status === 'SENT' ? { sentAt: new Date() } : { errorDetails: result.message }),
+					...(options?.attempts !== undefined && { attempts: options.attempts }),
+					...(options?.nextRetryAt && { nextRetryAt: options.nextRetryAt }),
+					...(options?.provider && { provider: options.provider }),
+					...(result.message && { lastError: result.message }),
 				},
 			});
 		} catch (error) {
@@ -32,7 +46,15 @@ class MessageLogService {
 	/**
 	 * Log a template email to the database
 	 */
-	static async logTemplateEmail(request: TemplateEmailRequest, env: Env, externalId?: string): Promise<MessageType[]> {
+	static async logTemplateEmail(
+		request: TemplateEmailRequest,
+		env: Env,
+		options?: {
+			externalId?: string;
+			scheduledAt?: Date;
+			provider?: string;
+		},
+	): Promise<MessageType[]> {
 		const { to, templateName, templateVariables } = request;
 		const prisma = getPrismaClient(env);
 
@@ -45,6 +67,9 @@ class MessageLogService {
 
 		// Convert single recipient to array for consistent handling
 		const recipients = Array.isArray(to) ? to : [to];
+
+		// Determine status based on scheduling
+		const status = options?.scheduledAt && options.scheduledAt > new Date() ? 'SCHEDULED' : 'QUEUED';
 
 		// Log message for each recipient
 		try {
@@ -63,9 +88,11 @@ class MessageLogService {
 						data: {
 							contactId: contact.id,
 							templateId: template.id,
-							status: 'PENDING',
+							status,
 							variables: JSON.stringify(templateVariables),
-							...(externalId && { externalId }),
+							...(options?.externalId && { externalId: options.externalId }),
+							...(options?.scheduledAt && { scheduledAt: options.scheduledAt }),
+							...(options?.provider && { provider: options.provider }),
 						},
 					});
 				}),
@@ -81,12 +108,23 @@ class MessageLogService {
 	/**
 	 * Log a direct email to the database
 	 */
-	static async logDirectEmail(request: Omit<DirectEmailRequest, 'body' | 'html'>, env: Env, externalId?: string): Promise<MessageType[]> {
+	static async logDirectEmail(
+		request: Omit<DirectEmailRequest, 'body' | 'html'>,
+		env: Env,
+		options?: {
+			externalId?: string;
+			scheduledAt?: Date;
+			provider?: string;
+		},
+	): Promise<MessageType[]> {
 		const { to } = request;
 		const prisma = getPrismaClient(env);
 
 		// Convert single recipient to array for consistent handling
 		const recipients = Array.isArray(to) ? to : [to];
+
+		// Determine status based on scheduling
+		const status = options?.scheduledAt && options.scheduledAt > new Date() ? 'SCHEDULED' : 'QUEUED';
 
 		// Log message for each recipient
 		try {
@@ -104,8 +142,10 @@ class MessageLogService {
 					return await prisma.message.create({
 						data: {
 							contactId: contact.id,
-							status: 'PENDING',
-							...(externalId && { externalId }),
+							status,
+							...(options?.externalId && { externalId: options.externalId }),
+							...(options?.scheduledAt && { scheduledAt: options.scheduledAt }),
+							...(options?.provider && { provider: options.provider }),
 						},
 					});
 				}),
@@ -124,13 +164,17 @@ class MessageLogService {
 	static async logMessage(
 		request: TemplateEmailRequest | Omit<DirectEmailRequest, 'body' | 'html'>,
 		env: Env,
-		upstreamId?: string,
+		options?: {
+			externalId?: string;
+			scheduledAt?: Date;
+			provider?: string;
+		},
 	): Promise<MessageType[]> {
 		// Determine if this is a template email by checking for templateName property
 		if ('templateName' in request) {
-			return await this.logTemplateEmail(request, env, upstreamId);
+			return await this.logTemplateEmail(request, env, options);
 		} else {
-			return await this.logDirectEmail(request, env, upstreamId);
+			return await this.logDirectEmail(request, env, options);
 		}
 	}
 }

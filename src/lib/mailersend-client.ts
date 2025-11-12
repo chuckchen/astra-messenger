@@ -1,9 +1,10 @@
+import type { ProviderResponse } from '../types';
 import { getEmail } from './utils';
 
 const send = async (
 	{ to, from, subject, text, html }: { to: string | string[]; from: string; subject: string; text: string; html: string },
 	env: Env,
-): Promise<{ code: number; message: string; data?: any }> => {
+): Promise<ProviderResponse> => {
 	const apiKey = env.MAILERSEND_API_KEY;
 
 	if (!apiKey) {
@@ -27,6 +28,8 @@ const send = async (
 	};
 
 	try {
+		// TODO: A paid plan is required to set `headers` or `list_unsubscribe` according to
+		// https://developers.mailersend.com/api/v1/email.html#request-parameters
 		const response = await fetch('https://api.mailersend.com/v1/email', {
 			method: 'POST',
 			headers: {
@@ -38,36 +41,44 @@ const send = async (
 		});
 
 		if (response.status === 202) {
-			const id = response.headers.get('x-message-id');
-			return { code: 201, message: `Email sent to ${JSON.stringify(to)}: ${id}`, data: { id } };
+			const id = response.headers.get('x-message-id') || undefined;
+			return { code: 201, message: `Email sent to ${JSON.stringify(to)}: ${id}`, data: { id }, retriable: false };
 		}
 
 		if (response.status === 400) {
 			console.error(`Incorrect parameters: ${JSON.stringify(payload)}`);
-			return { code: 400, message: 'Incorrect parameters' };
+			return { code: 400, message: 'Incorrect parameters', retriable: false };
 		}
 
 		if (response.status === 401 || response.status === 403) {
 			console.error(`The API key is ${env.MAILERSEND_API_KEY ? 'invalid' : 'missing'}`);
-			return { code: 401, message: 'The API key is missing or invalid' };
+			return { code: 401, message: 'The API key is missing or invalid', retriable: false };
 		}
 
 		if (response.status === 422) {
 			const data = await response.json();
 			console.error(`Invalid data: ${JSON.stringify(data)}, payload: ${JSON.stringify(payload)}`);
-			return { code: 422, message: 'The given data is invalid' };
+			return { code: 422, message: 'The given data is invalid', retriable: false };
 		}
 
 		if (response.status === 429) {
 			console.error('The rate limit was exceeded');
-			return { code: 429, message: 'Too many requests' };
+			return { code: 429, message: 'Too many requests', retriable: true };
+		}
+
+		// Server errors (500+) are retriable
+		if (response.status >= 500) {
+			console.error(`Server error: ${response.status}`);
+			return { code: response.status, message: 'Server error', retriable: true };
 		}
 
 		console.error(`Unexpected response: ${response.status}`);
-		return { code: 500, message: 'Unknown error' };
-	} catch (error: any) {
-		console.error(`Unknown error: ${error.message}`);
-		return { code: 500, message: error.message };
+		return { code: 500, message: 'Unknown error', retriable: true };
+	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : String(error);
+		console.error(`Network or unknown error: ${errorMessage}`);
+		// Network errors are retriable
+		return { code: 500, message: errorMessage, retriable: true };
 	}
 };
 

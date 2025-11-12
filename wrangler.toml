@@ -20,7 +20,10 @@ database_id = "20fac7ee-550b-465f-a71c-c3deeee18d56"
 # Docs: https://developers.cloudflare.com/workers/platform/triggers/cron-triggers/
 # Configuration: https://developers.cloudflare.com/workers/wrangler/configuration/#triggers
 [triggers]
-crons = ["57 23 * * *"]
+crons = [
+  "*/5 * * * *",    # Process scheduled and retry emails every 5 minutes
+  "57 23 * * *"     # Generate mail reports daily at 23:57
+]
 
 [placement]
 mode = "smart"

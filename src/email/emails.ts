@@ -2,50 +2,22 @@
  * Handles email sending with template support and blacklist checking
  */
 
-import sendMailerSend from '../lib/mailersend-client';
-import sendResend from '../lib/resend-client';
-import sendSes from '../lib/ses-client';
+import { EMAIL_CONFIG } from '../config';
+import { getEmailProvider } from '../lib/email-provider';
 import TemplateOptOutService from '../optout/optout-service';
+import type { DirectEmailRequest, EmailResponse, EmailSendParams, TemplateEmailRequest } from '../types';
+import { formatRecipientsForLog, normalizeRecipients } from './email-utils';
 import TemplateService from './templates';
-
-// Email provider types
-type EmailProvider = 'ses' | 'resend' | 'mailersend';
-
-// Email response interface
-interface EmailResponse {
-	success: boolean;
-	code: number;
-	message: string;
-	data?: any;
-}
-
-// Email request interfaces
-interface BaseEmailRequest {
-	to: string | string[];
-	from: string;
-	provider?: EmailProvider;
-}
-
-interface TemplateEmailRequest extends BaseEmailRequest {
-	templateName: string;
-	templateVariables: Record<string, string | number | boolean>;
-}
-
-interface DirectEmailRequest extends BaseEmailRequest {
-	subject: string;
-	body: string;
-	html: string;
-}
 
 class EmailService {
 	/**
 	 * Send an email using a template
 	 */
 	static async sendTemplateEmail(request: TemplateEmailRequest, env: Env): Promise<EmailResponse> {
-		const { to, from, templateName, templateVariables, provider = 'mailersend' } = request;
+		const { to, from, templateName, templateVariables, provider = EMAIL_CONFIG.DEFAULT_PROVIDER } = request;
 
 		// Convert single recipient to array for consistent handling
-		const recipients = Array.isArray(to) ? to : [to];
+		const recipients = normalizeRecipients(to);
 
 		// Check if any recipients are blacklisted for this template
 		const OptOutChecks = await Promise.all(recipients.map((email) => TemplateOptOutService.isOptedOut(email, templateName, env)));
@@ -59,13 +31,13 @@ class EmailService {
 			return {
 				success: false,
 				code: 400,
-				message: `All recipients are blacklisted for template "${templateName}": ${optedOutRecipients.join(', ')}`,
+				message: `All recipients are blacklisted for template "${templateName}": ${formatRecipientsForLog(optedOutRecipients)}`,
 			};
 		}
 
 		// Log blacklisted recipients if any
 		if (optedOutRecipients.length > 0) {
-			console.warn(`Skipping blacklisted recipients for template "${templateName}": ${optedOutRecipients.join(', ')}`);
+			console.warn(`Skipping blacklisted recipients for template "${templateName}": ${formatRecipientsForLog(optedOutRecipients)}`);
 		}
 
 		// Process the template
@@ -97,7 +69,7 @@ class EmailService {
 	 * Send an email with direct content
 	 */
 	static async sendDirectEmail(request: DirectEmailRequest, env: Env): Promise<EmailResponse> {
-		const { to, from, subject, body, html, provider = 'mailersend' } = request;
+		const { to, from, subject, body, html, provider = EMAIL_CONFIG.DEFAULT_PROVIDER } = request;
 
 		if (!subject || !body) {
 			return {
@@ -108,7 +80,7 @@ class EmailService {
 		}
 
 		// Convert single recipient to array for consistent handling
-		const recipients = Array.isArray(to) ? to : [to];
+		const recipients = normalizeRecipients(to);
 
 		// Send the email with direct content
 		return this.sendToProvider({ to: recipients, from, subject, text: body, html, provider }, env);
@@ -117,39 +89,41 @@ class EmailService {
 	/**
 	 * Send email using the specified provider
 	 */
-	private static async sendToProvider(
-		{
-			to,
-			from,
-			subject,
-			text,
-			html,
-			provider,
-		}: { to: string[]; from: string; subject: string; text: string; html: string; provider: EmailProvider },
-		env: Env,
-	): Promise<EmailResponse> {
+	private static async sendToProvider(params: EmailSendParams, env: Env): Promise<EmailResponse> {
 		try {
-			let result;
+			// Get the appropriate provider function
+			const providerFunction = getEmailProvider(params.provider);
 
-			switch (provider) {
-				case 'resend':
-					result = await sendResend({ to, from, subject, text, html }, env);
-					break;
-				case 'mailersend':
-					result = await sendMailerSend({ to, from, subject, text, html }, env);
-					break;
-				case 'ses':
-					result = await sendSes({ to, from, subject, text, html }, env);
-					break;
-				default:
-					result = await sendMailerSend({ to, from, subject, text, html }, env);
-			}
+			// Send the email
+			const result = await providerFunction(
+				{
+					to: params.to,
+					from: params.from,
+					subject: params.subject,
+					text: params.text,
+					html: params.html,
+				},
+				env,
+			);
 
-			return { success: result.code >= 200 && result.code < 300, code: result.code, message: result.message, data: result.data };
-		} catch (error: any) {
-			return { success: false, code: 500, message: `Error sending email: ${error.message}` };
+			return {
+				success: result.code >= 200 && result.code < 300,
+				code: result.code,
+				message: result.message,
+				data: result.data,
+				retriable: result.retriable ?? false,
+			};
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			console.error(`Error sending email via ${params.provider}: ${errorMessage}`);
+			return {
+				success: false,
+				code: 500,
+				message: `Error sending email: ${errorMessage}`,
+				retriable: true,
+			};
 		}
 	}
 }
 
-export { EmailService as default, type DirectEmailRequest, type EmailResponse, type TemplateEmailRequest };
+export default EmailService;

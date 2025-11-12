@@ -1,7 +1,10 @@
+import { EMAIL_CONFIG } from '../config';
+import type { ProviderResponse } from '../types';
+
 const send = async (
 	{ to, from, subject, text, html }: { to: string | string[]; from: string; subject: string; text: string; html: string },
 	env: Env,
-): Promise<{ code: number; message: string; data?: any }> => {
+): Promise<ProviderResponse> => {
 	const apiKey = env.RESEND_API_KEY;
 
 	if (!apiKey) {
@@ -24,34 +27,48 @@ const send = async (
 				Authorization: `Bearer ${apiKey}`,
 				'Content-Type': 'application/json',
 			},
-			body: JSON.stringify({ ...payload, headers: { 'List-Unsubscribe': 'https://pixels-ai.com/unsubscribe' } }),
+			body: JSON.stringify({ ...payload, headers: { 'List-Unsubscribe': EMAIL_CONFIG.UNSUBSCRIBE_URL } }),
 		});
 
 		if (response.ok) {
-			const { id } = (await response.json()) as any;
-			return { code: 201, message: `Email sent to ${JSON.stringify(to)}: ${id}`, data: { id } };
+			const data = await response.json();
+			const id = (data as { id?: string }).id;
+			return { code: 201, message: `Email sent to ${JSON.stringify(to)}: ${id}`, data: { id }, retriable: false };
 		}
 
 		if (response.status === 400) {
 			console.error(`Incorrect parameters: ${JSON.stringify(payload)}}`);
-			return { code: 400, message: 'Incorrect parameters' };
+			return { code: 400, message: 'Incorrect parameters', retriable: false };
 		}
 
 		if (response.status === 401 || response.status === 403) {
 			console.error(`The API key is ${env.RESEND_API_KEY ? 'invalid' : 'missing'}`);
-			return { code: 401, message: `The API key is missing or invalid` };
+			return { code: 401, message: `The API key is missing or invalid`, retriable: false };
+		}
+
+		if (response.status === 422) {
+			console.error('Validation error - invalid email or data');
+			return { code: 422, message: 'Validation error', retriable: false };
 		}
 
 		if (response.status === 429) {
 			console.error('The rate limit was exceeded');
-			return { code: 429, message: 'Too many request' };
+			return { code: 429, message: 'Too many request', retriable: true };
+		}
+
+		// Server errors (500+) are retriable
+		if (response.status >= 500) {
+			console.error(`Server error: ${response.status}`);
+			return { code: response.status, message: 'Server error', retriable: true };
 		}
 
 		console.error(`Unexpected response: ${response.status}`);
-		return { code: 500, message: 'Unknown error' };
-	} catch (error: any) {
-		console.error(`Unknown error: ${error.message}`);
-		return { code: 500, message: error.message };
+		return { code: 500, message: 'Unknown error', retriable: true };
+	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : String(error);
+		console.error(`Network or unknown error: ${errorMessage}`);
+		// Network errors are retriable
+		return { code: 500, message: errorMessage, retriable: true };
 	}
 };
 

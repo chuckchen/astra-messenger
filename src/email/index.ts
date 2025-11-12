@@ -1,88 +1,49 @@
 import { Hono } from 'hono';
 
-import EmailService from './emails';
-import MessageLogService from './message-log';
+import type { SendEmailRequestBody } from '../types';
+import { handleDirectEmail, handleTemplateEmail } from './email-handler';
 
 const router = new Hono<{ Bindings: Env }>().basePath('/emails');
 
 // Send email
 router.post('/', async (c) => {
-	// Parse the request body
-	const { to, from, subject, body, html, templateName, templateVariables, provider } = await c.req.json();
+	try {
+		// Parse the request body
+		const body: SendEmailRequestBody = await c.req.json();
 
-	// Validate input
-	if (!to || !from) {
-		return c.json({ success: false, code: 400, message: 'Missing required fields: to and from' }, { status: 400 });
-	}
-
-	// Check if both direct content and template-based email are requested.
-	if (templateName && subject) {
-		return c.json({ success: false, code: 400, message: 'Conflict params for both template-based and direct content' }, { status: 400 });
-	}
-
-	// Send direct content email
-	if (subject) {
-		if (body && html) {
-			try {
-				// First log the message
-				const loggedMessages = await MessageLogService.logMessage({ to, from, subject }, c.env);
-
-				const sendPromise = EmailService.sendDirectEmail({ to, from, subject, body, html, provider }, c.env);
-
-				// This does NOT block / wait
-				c.executionCtx.waitUntil(
-					sendPromise.then(async (result) => {
-						await Promise.all(
-							loggedMessages.map(async (message) => {
-								await MessageLogService.updateMessageLog(message.id, result, c.env);
-							}),
-						);
-					}),
-				);
-
-				return c.json({ success: true, code: 201, message: 'Request received' }, { status: 201 });
-			} catch (error: any) {
-				return c.json({ success: false, code: 500, message: `Error sending email: ${error.message}` }, { status: 500 });
-			}
+		// Determine if this is a direct email or template email
+		let result;
+		if (body.subject) {
+			// Direct content email
+			result = await handleDirectEmail(body, c.env, c.executionCtx);
+		} else if (body.templateName) {
+			// Template-based email
+			result = await handleTemplateEmail(body, c.env, c.executionCtx);
+		} else {
+			// Neither direct nor template specified
+			return c.json(
+				{
+					success: false,
+					code: 400,
+					message: 'Either subject (for direct email) or templateName (for template email) must be provided',
+				},
+				{ status: 400 },
+			);
 		}
 
-		return c.json({ success: false, code: 400, message: 'Missing body text or html' }, { status: 400 });
-	}
-
-	// Send template-based email
-	if (templateName && !templateVariables) {
-		// Additional validation for template usage
+		// Return the result with proper status code
+		const statusCode = result.code >= 200 && result.code < 600 ? result.code : 500;
+		return c.json(result, statusCode as any);
+	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : String(error);
 		return c.json(
 			{
 				success: false,
-				code: 400,
-				message: 'Template variables are required when using a template',
+				code: 500,
+				message: `Error processing email request: ${errorMessage}`,
 			},
-			{ status: 400 },
+			{ status: 500 },
 		);
-	}
-
-	try {
-		// First log the message
-		const loggedMessages = await MessageLogService.logTemplateEmail({ to, from, templateName, templateVariables }, c.env);
-
-		// Send the email using EmailService
-		const sendPromise = EmailService.sendTemplateEmail({ to, from, templateName, templateVariables, provider }, c.env);
-
-		// This does NOT block / wait
-		c.executionCtx.waitUntil(
-			sendPromise.then(async (result) => {
-				await Promise.all(
-					loggedMessages.map(async (message) => {
-						await MessageLogService.updateMessageLog(message.id, result, c.env);
-					}),
-				);
-			}),
-		);
-
-		return c.json({ success: true, code: 201, message: 'Request received' }, { status: 201 });
-	} catch (error: any) {
-		return c.json({ success: false, code: 500, message: `Error sending email: ${error.message}` }, { status: 500 });
 	}
 });
 

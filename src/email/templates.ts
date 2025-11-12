@@ -70,11 +70,7 @@ class TemplateService {
 			text = text.replace(placeholder, String(value));
 		});
 
-		return {
-			subject,
-			html,
-			text,
-		};
+		return { subject, html, text };
 	}
 
 	/**
