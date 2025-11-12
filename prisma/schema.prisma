@@ -12,6 +12,9 @@ datasource db {
 }
 
 enum MessageStatus {
+  QUEUED
+  SCHEDULED
+  PROCESSING
   PENDING
   SENT
   FAILED
@@ -79,12 +82,20 @@ model Message {
   contactId    Int           @map("contact_id")
   template     Template?     @relation(fields: [templateId], references: [id])
   templateId   Int?          @map("template_id")
-  status       MessageStatus @default(PENDING)
+  status       MessageStatus @default(QUEUED)
   errorDetails String?       @map("error_details")
   variables    String? // JSON string for template variables
   externalId   String?       @map("external_id")
-  createdAt    DateTime      @default(now()) @map("created_at")
-  sentAt       DateTime?     @map("sent_at")
+
+  scheduledAt DateTime  @default(now()) @map("scheduled_at")
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3) @map("max_attempts")
+  nextRetryAt DateTime? @map("next_retry_at")
+  lastError   String?   @map("last_error")
+  provider    String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  sentAt    DateTime? @map("sent_at")
 
   @@map("messages")
 }
